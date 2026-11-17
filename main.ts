@@ -1,16 +1,19 @@
-// Token Radar's entry program (Node 22, standard library only).
+// Token Radar's entry program. Node 22, standard library only, no network.
 //
-// It reads the sealed snapshot from /input/snapshot.json (or --input <file|dir>), scores
-// every genuine pre-token protocol with the comparable-multiple model in lib/model.ts,
-// writes the ranked board to /output/board.json, and copies this repository's dashboard/
-// and screenshots/ to /output. Last, it writes /output/dossier.json, the summary the
-// judge reads, with the vendored make.fun library.
+// It reads the sealed snapshot (/input/snapshot.json, or --input <file|dir>),
+// scores every genuine pre-token protocol with the comparable-multiple model
+// in lib/model.ts, writes the ranked board to /output/board.json, and copies
+// this repository's dashboard/ and screenshots/ to /output. Last it writes
+// /output/dossier.json, the summary the judge reads, through the vendored
+// make.fun library.
 //
-// The dashboard is a static page, no framework and no network: dashboard/index.html,
-// dashboard/app.css and dashboard/app.js read /output/data.js, which this program writes
-// from the same board. The model is the entry's own claim: a protocol's token, if it
-// launched at the multiple its live-token peers trade at, would be worth its TVL times
-// that multiple, moved by its seven-day growth and by how long it has run with no token.
+// The dashboard is a static page with no framework and no network:
+// dashboard/index.html, dashboard/app.css and dashboard/app.js read
+// /output/data.js, which this program writes from the same board. The model
+// is the entry's own claim: a protocol's token, if it launched at the
+// multiple its live-token peers trade at, would be worth its TVL times that
+// multiple, moved by its seven-day growth and by how long it has run with no
+// token.
 //
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts --input ../input/snapshot.json
@@ -21,42 +24,23 @@ import { fileURLToPath } from 'node:url';
 import { boardIssue, buildRadar, dataScript, parseSnapshot } from './lib/model.ts';
 import { buildDossier } from './vendor/makefun-board.ts';
 
-const here = fileURLToPath(new URL('.', import.meta.url));
+const root = fileURLToPath(new URL('.', import.meta.url));
 
-/** The scorer's own caps (reference/gate.json): the text cap shapes the bytes, the rest refuse. */
+/** The scorer's caps (reference/gate.json): the text cap shapes the bytes, the rest refuse. */
 const TEXT_MAX_BYTES = 65_536;
 const SCREENSHOT_CAPS = { max: 4, max_bytes: 524_288 };
 const IMAGE_NAME = /^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$/;
 
-/** --name <value> out of the arguments, or the fallback. */
-function arg(name: string, fallback: string): string {
+/** The value after `--name`, or after `--name=`, or the fallback when neither is given. */
+function flag(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
   if (at >= 0 && at + 1 < process.argv.length) return process.argv[at + 1]!;
-  const withEquals = process.argv.find((a) => a.startsWith(`--${name}=`));
-  return withEquals === undefined ? fallback : withEquals.slice(name.length + 3);
+  const joined = process.argv.find((a) => a.startsWith(`--${name}=`));
+  if (joined === undefined) return fallback;
+  return joined.slice(name.length + 3);
 }
 
-const inputArg = arg('input', '/input');
-const inputFile = inputArg.endsWith('.json') ? inputArg : join(inputArg, 'snapshot.json');
-if (!existsSync(inputFile)) {
-  process.stderr.write(`token radar: no snapshot at ${inputFile}: pass --input <snapshot.json|directory> or mount the sealed /input\n`);
-  process.exit(2);
-}
-const out = arg('output', process.env.MAKEFUN_OUTPUT_DIR ?? '/output');
-
-const snapshot = parseSnapshot(readFileSync(inputFile, 'utf8'));
-const { board, radar } = buildRadar(snapshot);
-const issue = boardIssue(board, snapshot);
-if (issue !== null) {
-  process.stderr.write(`token radar: the model wrote a board the gate refuses: ${issue}\n`);
-  process.exit(1);
-}
-
-mkdirSync(out, { recursive: true });
-writeFileSync(join(out, 'board.json'), `${JSON.stringify({ rows: board })}\n`);
-writeFileSync(join(out, 'data.js'), dataScript(radar));
-
-/** Copy one directory's regular files into `to`, skipping names that start with a dot. */
+/** Copy one directory's regular files into `to`, skipping dotfiles, and name what arrived. */
 function copyFiles(from: string, to: string): string[] {
   if (!existsSync(from)) return [];
   mkdirSync(to, { recursive: true });
@@ -71,8 +55,28 @@ function copyFiles(from: string, to: string): string[] {
   return copied;
 }
 
-copyFiles(join(here, 'dashboard'), join(out, 'dashboard'));
-const shots = copyFiles(join(here, 'screenshots'), join(out, 'screenshots'));
+const inputArg = flag('input', '/input');
+const inputFile = inputArg.endsWith('.json') ? inputArg : join(inputArg, 'snapshot.json');
+if (!existsSync(inputFile)) {
+  process.stderr.write(`token radar: no snapshot at ${inputFile}: pass --input <snapshot.json|directory> or mount the sealed /input\n`);
+  process.exit(2);
+}
+const out = flag('output', process.env.MAKEFUN_OUTPUT_DIR ?? '/output');
+
+const snapshot = parseSnapshot(readFileSync(inputFile, 'utf8'));
+const { board, radar } = buildRadar(snapshot);
+const issue = boardIssue(board, snapshot);
+if (issue !== null) {
+  process.stderr.write(`token radar: the model wrote a board the gate refuses: ${issue}\n`);
+  process.exit(1);
+}
+
+mkdirSync(out, { recursive: true });
+writeFileSync(join(out, 'board.json'), `${JSON.stringify({ rows: board })}\n`);
+writeFileSync(join(out, 'data.js'), dataScript(radar));
+
+copyFiles(join(root, 'dashboard'), join(out, 'dashboard'));
+const shots = copyFiles(join(root, 'screenshots'), join(out, 'screenshots'));
 if (shots.length < 3) {
   process.stderr.write(`token radar: screenshots/ holds ${shots.length} image${shots.length === 1 ? '' : 's'}: hand in 3, the board, a detail view and a filtered view\n`);
   process.exit(1);
@@ -84,7 +88,7 @@ for (const name of shots) {
   }
 }
 
-// The dossier is written last: the scorer rebuilds it from this /output and compares bytes.
+// The dossier goes last: the scorer rebuilds it from this /output and compares bytes.
 writeFileSync(join(out, 'dossier.json'), buildDossier(out, { text_max_bytes: TEXT_MAX_BYTES, screenshots: SCREENSHOT_CAPS, dashboard: { max_files: 400, max_bytes: 4_194_304 } }));
 
 process.stdout.write(

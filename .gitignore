@@ -1,2 +1,4 @@
+# Generated program output (board, dashboard copy, dossier): main.ts rebuilds it.
 out/
+# Scratch copy kept only while checking determinism, never submitted.
 out-run1/
