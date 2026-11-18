@@ -1,5 +1,9 @@
 # Token Radar
 
+[![token-radar-01](https://make.fun/badge/token-radar-01.svg)](https://make.fun/bounty/token-radar-01)
+[![rank](https://make.fun/badge/token-radar-01/kuro1996/token-radar/rank.svg)](https://make.fun/bounty/token-radar-01)
+[![reward](https://make.fun/badge/token-radar-01/kuro1996/token-radar/reward.svg)](https://make.fun/bounty/token-radar-01)
+
 Pre-token protocols ranked by implied value — an entry for make.fun's
 [token-radar-01](https://make.fun/bounty/token-radar-01) bounty ($1,325 in USDC).
 
